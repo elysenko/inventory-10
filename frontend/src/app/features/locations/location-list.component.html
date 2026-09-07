@@ -1,0 +1,98 @@
+<div class="page" data-testid="locations-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Locations</h1>
+      <p class="page-head__sub">
+        {{ locations().length }} storage zones holding {{ totalUnits() }} units
+      </p>
+    </div>
+    @if (auth.isManager()) {
+      <div class="page-head__actions">
+        <a class="btn btn--primary" routerLink="/locations/new" data-testid="locations-new">New location</a>
+      </div>
+    }
+  </header>
+
+  <section class="card">
+    @if (loading()) {
+      <div class="state" data-testid="locations-loading">
+        <span class="state__icon" aria-hidden="true">◌</span>
+        <p class="state__title">Loading locations…</p>
+      </div>
+    } @else if (error()) {
+      <div class="card__body">
+        <div class="alert alert--error" role="alert" data-testid="locations-error">{{ error() }}</div>
+      </div>
+    } @else if (!locations().length) {
+      <div class="state" data-testid="locations-empty">
+        <span class="state__icon" aria-hidden="true">⌂</span>
+        <p class="state__title">No locations yet</p>
+        <p>Add a storage zone before recording any stock movements.</p>
+        @if (auth.isManager()) {
+          <a class="btn btn--primary" routerLink="/locations/new">New location</a>
+        }
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table data-table--stack" data-testid="locations-table">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Zone</th>
+              <th scope="col" class="num">Items</th>
+              <th scope="col" class="num">Units on hand</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (location of locations(); track location.id) {
+              <tr attr.data-testid="location-row-{{ location.id }}">
+                <td data-label="Name"><strong>{{ location.name }}</strong></td>
+                <td data-label="Zone">{{ location.zone }}</td>
+                <td data-label="Items" class="num">{{ location.itemCount }}</td>
+                <td data-label="Units on hand" class="num">{{ location.totalQty }}</td>
+                <td data-label="Actions" class="cell-actions">
+                  <a
+                    class="btn btn--sm"
+                    [routerLink]="['/movements/new']"
+                    [queryParams]="{ type: 'TRANSFER', fromLocId: location.id }"
+                    attr.data-testid="location-transfer-{{ location.id }}"
+                  >
+                    Transfer out
+                  </a>
+                  @if (auth.isManager()) {
+                    <a
+                      class="btn btn--sm"
+                      [routerLink]="['/locations', location.id, 'edit']"
+                      attr.data-testid="location-edit-{{ location.id }}"
+                    >
+                      Edit
+                    </a>
+                    <button
+                      type="button"
+                      class="btn btn--sm btn--danger"
+                      (click)="askDelete(location)"
+                      attr.data-testid="location-delete-{{ location.id }}"
+                    >
+                      Delete
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>
+
+@if (pendingDelete(); as target) {
+  <app-confirm-dialog
+    [title]="'Delete ' + target.name + '?'"
+    [message]="'This removes the ' + target.zone + ' location from StockRoom. Movement history is preserved.'"
+    [blockedReason]="deleteBlocked()"
+    (confirmed)="confirmDelete()"
+    (dismissed)="closeDelete()"
+  />
+}

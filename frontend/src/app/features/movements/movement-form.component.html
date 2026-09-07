@@ -1,0 +1,162 @@
+<div class="page page--narrow" data-testid="movement-form-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Record movement</h1>
+      <p class="page-head__sub">
+        Receive, issue or transfer stock. Balances update atomically and can never go negative.
+      </p>
+    </div>
+  </header>
+
+  @if (success()) {
+    <div class="alert alert--success" role="status" data-testid="movement-success">
+      <span>{{ success() }}</span>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" (click)="reset()" data-testid="movement-another">Record another</button>
+      <button type="button" class="btn btn--primary" (click)="viewLog()" data-testid="movement-view-log">
+        View audit log
+      </button>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="alert alert--error" role="alert" data-testid="movement-error">{{ error() }}</div>
+  }
+
+  <section class="card">
+    <div class="card__body">
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate data-testid="movement-form">
+        <fieldset class="types">
+          <legend class="field__label">Movement type</legend>
+          <div class="types__grid" data-testid="movement-types">
+            @for (option of types; track option.value) {
+              <button
+                type="button"
+                class="type-card"
+                [class.type-card--active]="type() === option.value"
+                (click)="selectType(option.value)"
+                [attr.aria-pressed]="type() === option.value"
+                attr.data-testid="movement-type-{{ option.value }}"
+              >
+                <span class="badge badge--{{ option.value.toLowerCase() }}">{{ option.value }}</span>
+                <strong>{{ option.label }}</strong>
+                <span class="type-card__hint">{{ option.hint }}</span>
+              </button>
+            }
+          </div>
+        </fieldset>
+
+        <div class="field typeahead">
+          <label class="field__label" for="movement-item">Item</label>
+          @if (selectedItem(); as chosen) {
+            <div class="chosen" data-testid="movement-item-chosen">
+              <span class="mono">{{ chosen.sku }}</span>
+              <span class="chosen__name">{{ chosen.name }}</span>
+              <button type="button" class="btn btn--ghost btn--sm" (click)="chooseItem('')" data-testid="movement-item-clear">
+                Change
+              </button>
+            </div>
+          } @else {
+            <input
+              id="movement-item"
+              class="field__control"
+              type="search"
+              autocomplete="off"
+              placeholder="Search by SKU or name…"
+              [value]="itemSearch()"
+              (input)="onSearch($any($event.target).value)"
+              (focus)="pickerOpen.set(true)"
+              data-testid="movement-item-search"
+            />
+            @if (pickerOpen()) {
+              <ul class="typeahead__list" data-testid="movement-item-options">
+                @for (option of matchingItems(); track option.id) {
+                  <li>
+                    <button
+                      type="button"
+                      class="typeahead__option"
+                      (click)="chooseItem(option.id)"
+                      attr.data-testid="movement-item-option-{{ option.id }}"
+                    >
+                      <span class="mono">{{ option.sku }}</span>
+                      <span>{{ option.name }}</span>
+                      <span class="typeahead__qty">{{ option.totalQty }} on hand</span>
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="typeahead__empty" data-testid="movement-item-none">No items match that search.</li>
+                }
+              </ul>
+            }
+          }
+        </div>
+
+        <div class="form-grid">
+          @if (needsSource()) {
+            <div class="field">
+              <label class="field__label" for="movement-from">From location</label>
+              <select id="movement-from" class="field__control" formControlName="fromLocId" data-testid="movement-from">
+                <option value="">Select a source…</option>
+                @for (location of locations(); track location.id) {
+                  <option [value]="location.id">{{ location.name }} — {{ location.zone }}</option>
+                }
+              </select>
+              @if (availableAtSource() !== null) {
+                <span class="field__hint" data-testid="movement-available">
+                  {{ availableAtSource() }} available here.
+                </span>
+              }
+            </div>
+          }
+
+          @if (needsDestination()) {
+            <div class="field">
+              <label class="field__label" for="movement-to">To location</label>
+              <select id="movement-to" class="field__control" formControlName="toLocId" data-testid="movement-to">
+                <option value="">Select a destination…</option>
+                @for (location of locations(); track location.id) {
+                  <option [value]="location.id">{{ location.name }} — {{ location.zone }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <div class="field">
+            <label class="field__label" for="movement-qty">Quantity</label>
+            <input
+              id="movement-qty"
+              class="field__control"
+              type="number"
+              min="1"
+              step="1"
+              formControlName="qty"
+              data-testid="movement-qty"
+            />
+            @if (selectedItem(); as chosen) {
+              <span class="field__hint">Counted in {{ chosen.unit }}.</span>
+            }
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="movement-note">Note</label>
+          <textarea
+            id="movement-note"
+            class="field__control"
+            formControlName="note"
+            placeholder="Optional — purchase order, work order, or reason."
+            data-testid="movement-note"
+          ></textarea>
+        </div>
+
+        <div class="form-actions">
+          <a class="btn" routerLink="/items" data-testid="movement-cancel">Cancel</a>
+          <button type="submit" class="btn btn--accent" [disabled]="submitting()" data-testid="movement-submit">
+            {{ submitting() ? 'Recording…' : 'Record movement' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>

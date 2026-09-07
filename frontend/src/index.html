@@ -2,10 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>App</title>
+    <title>StockRoom</title>
     <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#17324d" />
+    <meta name="description" content="StockRoom — multi-location warehouse inventory control." />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <script>
+      /**
+       * Resolve <base href> before the bundle loads so one build works at the site root,
+       * under the preview host's `/<mockup_id>/` prefix, and under the deploy baseHref
+       * `/{{IMAGE_NAME}}/`. Angular reads this element for both asset and router URLs.
+       * A first path segment that matches a real app route means we are already at the
+       * root; anything else is a mount prefix.
+       */
+      (function () {
+        var APP_SEGMENTS = ['login', 'signup', 'items', 'locations', 'movements', 'reports', 'admin'];
+        var seg = location.pathname.split('/')[1] || '';
+        var base = seg && APP_SEGMENTS.indexOf(seg) === -1 ? '/' + seg + '/' : '/';
+        document.querySelector('base').setAttribute('href', base);
+      })();
+    </script>
   </head>
   <body>
     <app-root></app-root>

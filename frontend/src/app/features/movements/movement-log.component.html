@@ -1,0 +1,178 @@
+<div class="page" data-testid="movement-log-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Audit log</h1>
+      <p class="page-head__sub">
+        Every quantity that has ever moved, newest first. Filters are shareable as a link.
+      </p>
+    </div>
+    <div class="page-head__actions">
+      <a class="btn btn--accent" routerLink="/movements/new" data-testid="log-record">Record movement</a>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="card__body">
+      <div class="filters" data-testid="log-filters">
+        <div class="field">
+          <label class="field__label" for="log-item">Item</label>
+          <select
+            id="log-item"
+            class="field__control"
+            [value]="itemFilter()"
+            (change)="setFilter('itemId', $any($event.target).value)"
+            data-testid="log-filter-item"
+          >
+            <option value="">All items</option>
+            @for (item of items(); track item.id) {
+              <option [value]="item.id">{{ item.sku }} — {{ item.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="log-type">Type</label>
+          <select
+            id="log-type"
+            class="field__control"
+            [value]="typeFilter()"
+            (change)="setFilter('type', $any($event.target).value)"
+            data-testid="log-filter-type"
+          >
+            <option value="">All types</option>
+            @for (type of types; track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="log-from">From date</label>
+          <input
+            id="log-from"
+            class="field__control"
+            type="date"
+            [value]="fromFilter()"
+            (change)="setFilter('from', $any($event.target).value)"
+            data-testid="log-filter-from"
+          />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="log-to">To date</label>
+          <input
+            id="log-to"
+            class="field__control"
+            type="date"
+            [value]="toFilter()"
+            (change)="setFilter('to', $any($event.target).value)"
+            data-testid="log-filter-to"
+          />
+        </div>
+
+        @if (hasFilters()) {
+          <div class="field">
+            <span class="field__label">&nbsp;</span>
+            <button type="button" class="btn btn--ghost" (click)="clearFilters()" data-testid="log-clear">
+              Clear filters
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="state" data-testid="log-loading">
+        <span class="state__icon" aria-hidden="true">◌</span>
+        <p class="state__title">Loading movements…</p>
+      </div>
+    } @else if (error()) {
+      <div class="card__body">
+        <div class="alert alert--error" role="alert" data-testid="log-error">{{ error() }}</div>
+      </div>
+    } @else if (!total()) {
+      <div class="state" data-testid="log-empty">
+        <span class="state__icon" aria-hidden="true">☰</span>
+        <p class="state__title">No movements match these filters</p>
+        <p>
+          @if (hasFilters()) {
+            Widen the date range or clear the filters to see the full history.
+          } @else {
+            Nothing has been recorded yet. The log fills up as stock moves.
+          }
+        </p>
+        @if (hasFilters()) {
+          <button type="button" class="btn" (click)="clearFilters()" data-testid="log-empty-clear">Clear filters</button>
+        } @else {
+          <a class="btn btn--primary" routerLink="/movements/new">Record the first movement</a>
+        }
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table data-table--stack" data-testid="log-table">
+          <thead>
+            <tr>
+              <th scope="col">When</th>
+              <th scope="col">User</th>
+              <th scope="col">Item</th>
+              <th scope="col">Type</th>
+              <th scope="col" class="num">Qty</th>
+              <th scope="col">From → To</th>
+              <th scope="col">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (movement of pageRows(); track movement.id) {
+              <tr attr.data-testid="log-row-{{ movement.id }}">
+                <td data-label="When" class="nowrap">{{ when(movement.createdAt) }}</td>
+                <td data-label="User">
+                  <span class="log-user">{{ movement.userEmail }}</span>
+                  <span class="badge">{{ movement.userRole }}</span>
+                </td>
+                <td data-label="Item">
+                  <a class="link-strong" [routerLink]="['/items', movement.itemId]">{{ movement.itemSku }}</a>
+                  <span class="log-item-name">{{ movement.itemName }}</span>
+                </td>
+                <td data-label="Type">
+                  <span class="badge badge--{{ movement.type.toLowerCase() }}">{{ movement.type }}</span>
+                </td>
+                <td data-label="Qty" class="num"><strong>{{ movement.qty }}</strong></td>
+                <td data-label="From → To" class="nowrap">
+                  {{ movement.fromLocName || '—' }} <span aria-hidden="true">→</span> {{ movement.toLocName || '—' }}
+                </td>
+                <td data-label="Note">{{ movement.note || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pager" data-testid="log-pager">
+        <span class="pager__status" data-testid="log-range">
+          {{ rangeStart() }}–{{ rangeEnd() }} of {{ total() }}
+        </span>
+        <div class="pager__controls">
+          <button
+            type="button"
+            class="btn btn--sm"
+            [disabled]="page() <= 1"
+            (click)="goToPage(page() - 1)"
+            data-testid="log-prev"
+          >
+            Previous
+          </button>
+          <span class="pager__page">Page {{ page() }} of {{ pageCount() }}</span>
+          <button
+            type="button"
+            class="btn btn--sm"
+            [disabled]="page() >= pageCount()"
+            (click)="goToPage(page() + 1)"
+            data-testid="log-next"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    }
+  </section>
+</div>

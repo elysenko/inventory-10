@@ -1,0 +1,72 @@
+<div class="page page--narrow" data-testid="location-form-page">
+  <a class="crumb" routerLink="/locations" data-testid="location-form-back">
+    <span aria-hidden="true">←</span> All locations
+  </a>
+
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title" data-testid="location-form-title">
+        {{ isEdit() ? 'Edit location' : 'New location' }}
+      </h1>
+      <p class="page-head__sub">
+        A location is one addressable storage area. Stock balances are tracked per item, per location.
+      </p>
+    </div>
+  </header>
+
+  @if (isEdit() && !existing()) {
+    <div class="alert alert--error" role="alert" data-testid="location-form-missing">
+      No location matches <span class="mono">{{ id() }}</span>.
+    </div>
+  }
+
+  @if (error()) {
+    <div class="alert alert--error" role="alert" data-testid="location-form-error">{{ error() }}</div>
+  }
+
+  <section class="card">
+    <div class="card__body">
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate data-testid="location-form">
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label" for="location-name">Name</label>
+            <input
+              id="location-name"
+              class="field__control"
+              [class.field__control--invalid]="nameError()"
+              type="text"
+              formControlName="name"
+              placeholder="Zone D"
+              data-testid="location-name"
+            />
+            @if (nameError()) {
+              <span class="field__error" data-testid="location-name-error">{{ nameError() }}</span>
+            } @else {
+              <span class="field__hint">Unique across the warehouse.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="location-zone">Zone</label>
+            <input
+              id="location-zone"
+              class="field__control"
+              type="text"
+              formControlName="zone"
+              placeholder="Receiving, Bulk storage, Dispatch…"
+              data-testid="location-zone"
+            />
+            <span class="field__hint">What this area is used for.</span>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn" (click)="cancel()" data-testid="location-cancel">Cancel</button>
+          <button type="submit" class="btn btn--primary" [disabled]="saving()" data-testid="location-save">
+            {{ saving() ? 'Saving…' : isEdit() ? 'Save changes' : 'Create location' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,85 @@
+<div class="page page--narrow" data-testid="settings-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Settings</h1>
+      <p class="page-head__sub">
+        Credentials for the services StockRoom depends on. Stored values are always shown masked.
+      </p>
+    </div>
+  </header>
+
+  @if (unconfiguredServices().length) {
+    <div class="alert alert--warn" role="status" data-testid="settings-placeholder-banner">
+      <span>
+        The following need credentials to activate:
+        <strong>{{ unconfiguredServices().join(', ') }}</strong>
+      </span>
+    </div>
+  }
+
+  @if (saved()) {
+    <div class="alert alert--success" role="status" data-testid="settings-saved">
+      Credentials saved. New values take effect on the next request.
+    </div>
+  }
+
+  @if (error()) {
+    <div class="alert alert--error" role="alert" data-testid="settings-error">{{ error() }}</div>
+  }
+
+  @for (group of groups(); track group.service) {
+    <section class="card" attr.data-testid="settings-group-{{ group.service }}">
+      <div class="card__head">
+        <div>
+          <h2 class="card__title">{{ group.label }}</h2>
+          <p class="card__blurb">{{ group.blurb }}</p>
+        </div>
+        @if (isConfigured(group)) {
+          <span class="badge badge--ok" attr.data-testid="settings-status-{{ group.service }}">Configured</span>
+        } @else {
+          <span class="badge badge--low" attr.data-testid="settings-status-{{ group.service }}">Needs setup</span>
+        }
+      </div>
+
+      <div class="card__body">
+        <form (ngSubmit)="save(group.service)" attr.data-testid="settings-form-{{ group.service }}">
+          @for (entry of group.entries; track entry.key) {
+            <div class="field">
+              <label class="field__label" [attr.for]="'setting-' + entry.key">
+                {{ entry.label }} <span class="field__key mono">{{ entry.key }}</span>
+              </label>
+
+              @if (entry.configured) {
+                <p class="masked mono" attr.data-testid="settings-current-{{ entry.key }}">{{ entry.value }}</p>
+              }
+
+              <input
+                [id]="'setting-' + entry.key"
+                class="field__control"
+                type="password"
+                autocomplete="off"
+                [placeholder]="entry.configured ? 'Enter a new value to replace it' : 'Not set'"
+                [ngModel]="draftFor(entry.key)"
+                (ngModelChange)="onDraftChange(entry.key, $event)"
+                [ngModelOptions]="{ standalone: true }"
+                attr.data-testid="settings-input-{{ entry.key }}"
+              />
+              <span class="field__hint">{{ entry.hint }}</span>
+            </div>
+          }
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="btn btn--primary"
+              [disabled]="saving()"
+              attr.data-testid="settings-save-{{ group.service }}"
+            >
+              {{ saving() ? 'Saving…' : 'Save ' + group.label + ' credentials' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  }
+</div>

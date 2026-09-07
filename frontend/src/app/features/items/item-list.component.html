@@ -1,0 +1,149 @@
+<div class="page" data-testid="items-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Items</h1>
+      <p class="page-head__sub">
+        {{ items().length }} SKUs in the catalogue · {{ lowCount() }} at or below reorder point
+      </p>
+    </div>
+    @if (auth.isManager()) {
+      <div class="page-head__actions">
+        <a class="btn btn--primary" routerLink="/items/new" data-testid="items-new">New item</a>
+      </div>
+    }
+  </header>
+
+  <section class="card">
+    <div class="card__body">
+      <div class="filters" data-testid="items-filters">
+        <div class="field">
+          <label class="field__label" for="items-search">Search</label>
+          <input
+            id="items-search"
+            class="field__control"
+            type="search"
+            placeholder="SKU or name"
+            [value]="query()"
+            (input)="onSearch($any($event.target).value)"
+            data-testid="items-search"
+          />
+        </div>
+
+        <div class="field">
+          <span class="field__label">Filter</span>
+          <button
+            type="button"
+            class="btn"
+            [class.btn--accent]="lowOnly()"
+            (click)="toggleLowOnly()"
+            [attr.aria-pressed]="lowOnly()"
+            data-testid="items-low-toggle"
+          >
+            <span aria-hidden="true">⚑</span> Low stock only
+          </button>
+        </div>
+
+        @if (query() || lowOnly()) {
+          <div class="field">
+            <span class="field__label">&nbsp;</span>
+            <button type="button" class="btn btn--ghost" (click)="clearFilters()" data-testid="items-clear">
+              Clear filters
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="state" data-testid="items-loading">
+        <span class="state__icon" aria-hidden="true">◌</span>
+        <p class="state__title">Loading catalogue…</p>
+      </div>
+    } @else if (error()) {
+      <div class="card__body">
+        <div class="alert alert--error" role="alert" data-testid="items-error">{{ error() }}</div>
+      </div>
+    } @else if (!visibleItems().length) {
+      <div class="state" data-testid="items-empty">
+        <span class="state__icon" aria-hidden="true">▤</span>
+        <p class="state__title">No items match these filters</p>
+        <p>
+          @if (query() || lowOnly()) {
+            Try a different search term, or clear the filters to see the whole catalogue.
+          } @else {
+            The catalogue is empty. Managers can add the first SKU to get started.
+          }
+        </p>
+        @if (query() || lowOnly()) {
+          <button type="button" class="btn" (click)="clearFilters()" data-testid="items-empty-clear">
+            Clear filters
+          </button>
+        } @else if (auth.isManager()) {
+          <a class="btn btn--primary" routerLink="/items/new">New item</a>
+        }
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table data-table--stack" data-testid="items-table">
+          <thead>
+            <tr>
+              <th scope="col">SKU</th>
+              <th scope="col">Name</th>
+              <th scope="col">Unit</th>
+              <th scope="col" class="num">Reorder at</th>
+              <th scope="col" class="num">On hand</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of visibleItems(); track item.id) {
+              <tr attr.data-testid="item-row-{{ item.id }}">
+                <td data-label="SKU">
+                  <a class="link-strong mono" [routerLink]="['/items', item.id]">{{ item.sku }}</a>
+                </td>
+                <td data-label="Name">
+                  <a class="link-strong" [routerLink]="['/items', item.id]">{{ item.name }}</a>
+                </td>
+                <td data-label="Unit">{{ item.unit }}</td>
+                <td data-label="Reorder at" class="num">{{ item.reorderAt }}</td>
+                <td data-label="On hand" class="num"><strong>{{ item.totalQty }}</strong></td>
+                <td data-label="Status">
+                  @if (item.lowStock) {
+                    <span class="badge badge--low" attr.data-testid="item-low-{{ item.id }}">Low</span>
+                  } @else {
+                    <span class="badge badge--ok">OK</span>
+                  }
+                </td>
+                <td data-label="Actions" class="cell-actions">
+                  <a class="btn btn--sm" [routerLink]="['/items', item.id]" attr.data-testid="item-view-{{ item.id }}">View</a>
+                  @if (auth.isManager()) {
+                    <a class="btn btn--sm" [routerLink]="['/items', item.id, 'edit']" attr.data-testid="item-edit-{{ item.id }}">Edit</a>
+                    <button
+                      type="button"
+                      class="btn btn--sm btn--danger"
+                      (click)="askDelete(item)"
+                      attr.data-testid="item-delete-{{ item.id }}"
+                    >
+                      Delete
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>
+
+@if (pendingDelete(); as target) {
+  <app-confirm-dialog
+    [title]="'Delete ' + target.sku + '?'"
+    [message]="'This removes ' + target.name + ' from the catalogue. Movement history is preserved.'"
+    [blockedReason]="deleteBlocked()"
+    (confirmed)="confirmDelete()"
+    (dismissed)="closeDelete()"
+  />
+}

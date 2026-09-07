@@ -1,0 +1,29 @@
+:host { display: block; }
+
+.page--narrow { max-width: 760px; }
+
+.card__blurb {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  max-width: 52ch;
+}
+
+form { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.field__key {
+  margin-left: var(--space-2);
+  color: var(--color-text-subtle);
+  font-weight: var(--font-weight-regular);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.masked {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  word-break: break-all;
+}

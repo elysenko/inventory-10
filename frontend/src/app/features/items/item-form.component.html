@@ -1,0 +1,109 @@
+<div class="page page--narrow" data-testid="item-form-page">
+  <a class="crumb" routerLink="/items" data-testid="form-back"><span aria-hidden="true">←</span> All items</a>
+
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title" data-testid="item-form-title">
+        {{ isEdit() ? 'Edit item' : 'New item' }}
+      </h1>
+      <p class="page-head__sub">
+        {{ isEdit()
+          ? 'Update the catalogue record. Stock balances are unaffected.'
+          : 'Add a SKU to the catalogue. Stock is added afterwards by recording a movement.' }}
+      </p>
+    </div>
+  </header>
+
+  @if (isEdit() && !existing()) {
+    <div class="alert alert--error" role="alert" data-testid="item-form-missing">
+      No catalogue entry matches <span class="mono">{{ id() }}</span>.
+    </div>
+  }
+
+  @if (error()) {
+    <div class="alert alert--error" role="alert" data-testid="item-form-error">{{ error() }}</div>
+  }
+
+  <section class="card">
+    <div class="card__body">
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate data-testid="item-form">
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label" for="item-sku">SKU</label>
+            <input
+              id="item-sku"
+              class="field__control mono"
+              [class.field__control--invalid]="skuError()"
+              type="text"
+              formControlName="sku"
+              placeholder="SKU-1234"
+              data-testid="item-sku"
+            />
+            @if (skuError()) {
+              <span class="field__error" data-testid="item-sku-error">{{ skuError() }}</span>
+            } @else {
+              <span class="field__hint">Unique across the catalogue.</span>
+            }
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="item-name">Name</label>
+            <input
+              id="item-name"
+              class="field__control"
+              type="text"
+              formControlName="name"
+              placeholder="M8 Hex Bolt, Zinc Plated"
+              data-testid="item-name"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="item-unit">Unit</label>
+            <input
+              id="item-unit"
+              class="field__control"
+              type="text"
+              formControlName="unit"
+              placeholder="each, box (100), roll…"
+              data-testid="item-unit"
+            />
+            <span class="field__hint">How this item is counted.</span>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="item-reorder">Reorder at</label>
+            <input
+              id="item-reorder"
+              class="field__control"
+              type="number"
+              min="0"
+              step="1"
+              formControlName="reorderAt"
+              data-testid="item-reorder"
+            />
+            <span class="field__hint">Flagged as low when total on hand falls to or below this.</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="item-description">Description</label>
+          <textarea
+            id="item-description"
+            class="field__control"
+            formControlName="description"
+            placeholder="Optional detail — grade, dimensions, supplier reference."
+            data-testid="item-description"
+          ></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn" (click)="cancel()" data-testid="item-cancel">Cancel</button>
+          <button type="submit" class="btn btn--primary" [disabled]="saving()" data-testid="item-save">
+            {{ saving() ? 'Saving…' : isEdit() ? 'Save changes' : 'Create item' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>

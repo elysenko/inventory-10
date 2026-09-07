@@ -1,0 +1,8 @@
+:host { display: block; }
+
+.link-strong { color: var(--color-primary); font-weight: var(--font-weight-semibold); }
+.link-strong:hover { text-decoration: underline; }
+
+@media (max-width: 768px) {
+  .table-wrap { padding: var(--space-3); background: var(--color-surface-alt); }
+}

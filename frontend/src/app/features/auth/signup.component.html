@@ -1,0 +1,96 @@
+<div class="auth" data-testid="signup-screen">
+  <section class="auth__panel">
+    <a class="auth__brand" href="#" onclick="return false;">
+      <span class="auth__mark" aria-hidden="true">SR</span>
+      <span>StockRoom</span>
+    </a>
+
+    <h1 class="auth__title">Create your account</h1>
+    <p class="auth__sub">The first account on a new StockRoom becomes the administrator.</p>
+
+    @if (error()) {
+      <div class="alert alert--error" role="alert" data-testid="signup-error">{{ error() }}</div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate data-testid="signup-form">
+      <div class="field">
+        <label class="field__label" for="signup-name">Name</label>
+        <input
+          id="signup-name"
+          class="field__control"
+          type="text"
+          formControlName="name"
+          autocomplete="name"
+          placeholder="Alex Rivera"
+          data-testid="signup-name"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="signup-email">Email</label>
+        <input
+          id="signup-email"
+          class="field__control"
+          [class.field__control--invalid]="emailError()"
+          type="email"
+          formControlName="email"
+          autocomplete="username"
+          placeholder="you@company.com"
+          data-testid="signup-email"
+        />
+        @if (emailError()) {
+          <span class="field__error" data-testid="signup-email-error">{{ emailError() }}</span>
+        }
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="signup-password">Password</label>
+        <input
+          id="signup-password"
+          class="field__control"
+          type="password"
+          formControlName="password"
+          autocomplete="new-password"
+          placeholder="At least 8 characters"
+          data-testid="signup-password"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="signup-confirm">Confirm password</label>
+        <input
+          id="signup-confirm"
+          class="field__control"
+          type="password"
+          formControlName="confirm"
+          autocomplete="new-password"
+          placeholder="Re-enter your password"
+          data-testid="signup-confirm"
+        />
+      </div>
+
+      <button type="submit" class="btn btn--primary btn--block" [disabled]="submitting()" data-testid="signup-submit">
+        {{ submitting() ? 'Creating account…' : 'Create account' }}
+      </button>
+
+      @if (previewShortcut) {
+        <button type="button" class="auth__shortcut" (click)="skipLogin()" data-testid="signup-skip">
+          {{ previewShortcut }}
+        </button>
+      }
+    </form>
+
+    <p class="auth__foot">
+      Already registered? <a routerLink="/login" data-testid="link-login">Sign in</a>
+    </p>
+  </section>
+
+  <aside class="auth__aside" aria-hidden="true">
+    <h2 class="auth__aside-title">Set up in minutes.</h2>
+    <ul class="auth__points">
+      <li><strong>Zones</strong> — model your floor as named storage locations.</li>
+      <li><strong>Thresholds</strong> — set a reorder point per item and get told when to buy.</li>
+      <li><strong>Roles</strong> — clerks record movements, managers own the catalogue.</li>
+    </ul>
+  </aside>
+</div>

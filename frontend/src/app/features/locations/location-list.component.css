@@ -1,0 +1,5 @@
+:host { display: block; }
+
+@media (max-width: 768px) {
+  .table-wrap { padding: var(--space-3); background: var(--color-surface-alt); }
+}

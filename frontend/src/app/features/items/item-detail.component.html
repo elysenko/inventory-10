@@ -1,0 +1,183 @@
+<div class="page" data-testid="item-detail-page">
+  <a class="crumb" routerLink="/items" data-testid="detail-back"><span aria-hidden="true">←</span> All items</a>
+
+  @if (loading()) {
+    <div class="state" data-testid="detail-loading">
+      <span class="state__icon" aria-hidden="true">◌</span>
+      <p class="state__title">Loading item…</p>
+    </div>
+  } @else if (error()) {
+    <div class="alert alert--error" role="alert" data-testid="detail-error">{{ error() }}</div>
+  } @else if (!item()) {
+    <div class="state" data-testid="detail-missing">
+      <span class="state__icon" aria-hidden="true">▤</span>
+      <p class="state__title">Item not found</p>
+      <p>No catalogue entry matches <span class="mono">{{ id() }}</span>.</p>
+      <a class="btn btn--primary" routerLink="/items">Back to items</a>
+    </div>
+  } @else {
+    @if (item(); as detail) {
+    <header class="page-head">
+      <div>
+        <h1 class="page-head__title">
+          {{ detail.name }}
+          @if (detail.lowStock) {
+            <span class="badge badge--low" data-testid="detail-low-badge">Low stock</span>
+          }
+        </h1>
+        <p class="page-head__sub">
+          <span class="mono">{{ detail.sku }}</span> · {{ detail.description }}
+        </p>
+      </div>
+      <div class="page-head__actions">
+        <a
+          class="btn btn--accent"
+          [routerLink]="['/movements/new']"
+          [queryParams]="{ type: 'IN', itemId: detail.id }"
+          data-testid="detail-record-in"
+        >
+          Record stock in
+        </a>
+        @if (auth.isManager()) {
+          <a class="btn" [routerLink]="['/items', detail.id, 'edit']" data-testid="detail-edit">Edit item</a>
+        }
+      </div>
+    </header>
+
+    <div class="stat-row" data-testid="detail-stats">
+      <div class="stat">
+        <div class="stat__label">On hand</div>
+        <div class="stat__value" data-testid="detail-total">{{ detail.totalQty }}</div>
+        <div class="stat__hint">{{ detail.unit }}</div>
+      </div>
+      <div class="stat" [class.stat--alert]="detail.lowStock">
+        <div class="stat__label">Reorder at</div>
+        <div class="stat__value" data-testid="detail-reorder">{{ detail.reorderAt }}</div>
+        <div class="stat__hint">
+          @if (shortfall() > 0) { {{ shortfall() }} below threshold } @else { Above threshold }
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">Locations</div>
+        <div class="stat__value">{{ detail.levels.length }}</div>
+        <div class="stat__hint">zones holding this SKU</div>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist" data-testid="detail-tabs">
+      <button
+        type="button"
+        role="tab"
+        class="tabs__tab"
+        [class.tabs__tab--active]="tab() === 'locations'"
+        [attr.aria-selected]="tab() === 'locations'"
+        (click)="selectTab('locations')"
+        data-testid="tab-locations"
+      >
+        By location
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="tabs__tab"
+        [class.tabs__tab--active]="tab() === 'movements'"
+        [attr.aria-selected]="tab() === 'movements'"
+        (click)="selectTab('movements')"
+        data-testid="tab-movements"
+      >
+        Movements ({{ itemMovements().length }})
+      </button>
+    </div>
+
+    @if (tab() === 'locations') {
+      <section class="card" data-testid="panel-locations">
+        <div class="table-wrap">
+          <table class="data-table data-table--stack">
+            <thead>
+              <tr>
+                <th scope="col">Location</th>
+                <th scope="col">Zone</th>
+                <th scope="col" class="num">Quantity</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (level of detail.levels; track level.locationId) {
+                <tr attr.data-testid="level-row-{{ level.locationId }}">
+                  <td data-label="Location"><strong>{{ level.locationName }}</strong></td>
+                  <td data-label="Zone">{{ level.zone }}</td>
+                  <td data-label="Quantity" class="num">{{ level.qty }}</td>
+                  <td data-label="Actions" class="cell-actions">
+                    <a
+                      class="btn btn--sm"
+                      [routerLink]="['/movements/new']"
+                      [queryParams]="{ type: 'TRANSFER', itemId: detail.id, fromLocId: level.locationId }"
+                      attr.data-testid="level-transfer-{{ level.locationId }}"
+                    >
+                      Transfer
+                    </a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td data-label="Total">Total on hand</td>
+                <td data-label="Zone"></td>
+                <td data-label="Quantity" class="num" data-testid="levels-total">{{ levelsTotal() }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+    } @else {
+      <section class="card" data-testid="panel-movements">
+        @if (!itemMovements().length) {
+          <div class="state" data-testid="detail-movements-empty">
+            <span class="state__icon" aria-hidden="true">⇄</span>
+            <p class="state__title">No movements yet</p>
+            <p>Nothing has been received, issued or transferred for this SKU.</p>
+            <a
+              class="btn btn--primary"
+              [routerLink]="['/movements/new']"
+              [queryParams]="{ type: 'IN', itemId: detail.id }"
+            >
+              Record the first movement
+            </a>
+          </div>
+        } @else {
+          <div class="table-wrap">
+            <table class="data-table data-table--stack">
+              <thead>
+                <tr>
+                  <th scope="col">When</th>
+                  <th scope="col">Type</th>
+                  <th scope="col" class="num">Qty</th>
+                  <th scope="col">From → To</th>
+                  <th scope="col">By</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (movement of itemMovements(); track movement.id) {
+                  <tr attr.data-testid="detail-movement-{{ movement.id }}">
+                    <td data-label="When">{{ shortDate(movement.createdAt) }}</td>
+                    <td data-label="Type">
+                      <span class="badge badge--{{ movement.type.toLowerCase() }}">{{ movement.type }}</span>
+                    </td>
+                    <td data-label="Qty" class="num">{{ movement.qty }}</td>
+                    <td data-label="From → To">
+                      {{ movement.fromLocName || '—' }} <span aria-hidden="true">→</span> {{ movement.toLocName || '—' }}
+                    </td>
+                    <td data-label="By">{{ movement.userEmail }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+    }
+  }
+</div>

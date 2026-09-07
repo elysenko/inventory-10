@@ -1,0 +1,111 @@
+<!--
+  data-testid="app-ready" is the universal readiness landmark: it enters the DOM only
+  after Angular bootstraps this root component, so the render gate can wait on it to
+  confirm the SPA hydrated (not a blank shell / 404 / failed bundle). Keep it here.
+-->
+<div data-testid="app-ready" class="shell" [class.shell--bare]="!showChrome()">
+  @if (showChrome()) {
+    <header class="topbar" data-testid="app-header">
+      <a class="brand" routerLink="/items" data-testid="brand">
+        <span class="brand__mark" aria-hidden="true">SR</span>
+        <span class="brand__name">StockRoom</span>
+      </a>
+
+      <div class="topbar__spacer"></div>
+
+      <a class="topbar__cta btn btn--accent btn--sm" routerLink="/movements/new" data-testid="topbar-record">
+        <span aria-hidden="true">⇄</span> Record
+      </a>
+
+      <div class="account" data-testid="account">
+        <span class="account__avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="account__meta">
+          <span class="account__name">{{ auth.user()?.name || auth.user()?.email }}</span>
+          <span class="account__role" data-testid="account-role">{{ auth.user()?.role }}</span>
+        </span>
+      </div>
+
+      <button type="button" class="btn btn--ghost btn--sm topbar__logout" (click)="logout()" data-testid="logout">
+        Sign out
+      </button>
+    </header>
+
+    <nav class="sidebar" aria-label="Main" data-testid="sidebar">
+      <ul class="sidebar__list">
+        @for (item of navItems(); track item.path) {
+          <li>
+            <a
+              class="sidebar__link"
+              [routerLink]="item.path"
+              routerLinkActive="sidebar__link--active"
+              [routerLinkActiveOptions]="{ exact: item.exact }"
+              attr.data-testid="nav-{{ item.shortLabel.toLowerCase() }}"
+            >
+              <span class="sidebar__icon" aria-hidden="true">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </nav>
+  }
+
+  <main class="content" [class.content--bare]="!showChrome()" data-testid="app-content">
+    <router-outlet />
+  </main>
+
+  @if (showChrome()) {
+    <!-- Mobile primary navigation: replaces the sidebar under 768px. -->
+    <nav class="tabbar" aria-label="Main" data-testid="tabbar">
+      @for (item of mobileTabs(); track item.path) {
+        <a
+          class="tabbar__link"
+          [routerLink]="item.path"
+          routerLinkActive="tabbar__link--active"
+          [routerLinkActiveOptions]="{ exact: item.exact }"
+          attr.data-testid="tab-{{ item.shortLabel.toLowerCase() }}"
+        >
+          <span class="tabbar__icon" aria-hidden="true">{{ item.icon }}</span>
+          <span class="tabbar__label">{{ item.shortLabel }}</span>
+        </a>
+      }
+      @if (overflowTabs().length) {
+        <button
+          type="button"
+          class="tabbar__link"
+          [class.tabbar__link--active]="moreOpen()"
+          (click)="toggleMore()"
+          data-testid="tab-more"
+        >
+          <span class="tabbar__icon" aria-hidden="true">⋯</span>
+          <span class="tabbar__label">More</span>
+        </button>
+      }
+    </nav>
+
+    @if (moreOpen()) {
+      <div class="sheet-backdrop" (click)="toggleMore()" data-testid="more-backdrop"></div>
+      <div class="sheet" role="dialog" aria-label="More navigation" data-testid="more-sheet">
+        <div class="sheet__grip" aria-hidden="true"></div>
+        <ul>
+          @for (item of overflowTabs(); track item.path) {
+            <li>
+              <a
+                class="sheet__link"
+                [routerLink]="item.path"
+                attr.data-testid="more-{{ item.shortLabel.toLowerCase() }}"
+              >
+                <span aria-hidden="true">{{ item.icon }}</span> {{ item.label }}
+              </a>
+            </li>
+          }
+          <li>
+            <button type="button" class="sheet__link sheet__link--danger" (click)="logout()" data-testid="more-logout">
+              <span aria-hidden="true">⏻</span> Sign out
+            </button>
+          </li>
+        </ul>
+      </div>
+    }
+  }
+</div>

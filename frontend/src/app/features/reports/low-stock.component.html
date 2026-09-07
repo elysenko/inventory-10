@@ -1,0 +1,96 @@
+<div class="page" data-testid="low-stock-page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-head__title">Low stock</h1>
+      <p class="page-head__sub">
+        Items whose total on-hand quantity has fallen to or below their reorder point.
+      </p>
+    </div>
+    <div class="page-head__actions">
+      <a class="btn" routerLink="/items" [queryParams]="{ low: 'true' }" data-testid="low-view-catalogue">
+        View in catalogue
+      </a>
+    </div>
+  </header>
+
+  <div class="stat-row" data-testid="low-stats">
+    <div class="stat" [class.stat--alert]="rows().length > 0">
+      <div class="stat__label">Items to reorder</div>
+      <div class="stat__value" data-testid="low-count">{{ rows().length }}</div>
+      <div class="stat__hint">at or below threshold</div>
+    </div>
+    <div class="stat" [class.stat--alert]="outOfStock() > 0">
+      <div class="stat__label">Out of stock</div>
+      <div class="stat__value" data-testid="low-out">{{ outOfStock() }}</div>
+      <div class="stat__hint">nothing on hand anywhere</div>
+    </div>
+    <div class="stat">
+      <div class="stat__label">Total shortfall</div>
+      <div class="stat__value">{{ totalShortfall() }}</div>
+      <div class="stat__hint">units below threshold</div>
+    </div>
+  </div>
+
+  <section class="card">
+    @if (loading()) {
+      <div class="state" data-testid="low-loading">
+        <span class="state__icon" aria-hidden="true">◌</span>
+        <p class="state__title">Building report…</p>
+      </div>
+    } @else if (error()) {
+      <div class="card__body">
+        <div class="alert alert--error" role="alert" data-testid="low-error">{{ error() }}</div>
+      </div>
+    } @else if (!rows().length) {
+      <div class="state" data-testid="low-empty">
+        <span class="state__icon" aria-hidden="true">✓</span>
+        <p class="state__title">Everything is above its reorder point</p>
+        <p>No item in the catalogue needs restocking right now.</p>
+        <a class="btn" routerLink="/items">Back to items</a>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table data-table--stack" data-testid="low-table">
+          <thead>
+            <tr>
+              <th scope="col">SKU</th>
+              <th scope="col">Name</th>
+              <th scope="col" class="num">On hand</th>
+              <th scope="col" class="num">Reorder at</th>
+              <th scope="col" class="num">Shortfall</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.itemId) {
+              <tr attr.data-testid="low-row-{{ row.itemId }}">
+                <td data-label="SKU">
+                  <a class="link-strong mono" [routerLink]="['/items', row.itemId]">{{ row.sku }}</a>
+                </td>
+                <td data-label="Name">
+                  {{ row.name }}
+                  @if (row.onHand === 0) {
+                    <span class="badge badge--out" attr.data-testid="low-empty-badge-{{ row.itemId }}">Out</span>
+                  }
+                </td>
+                <td data-label="On hand" class="num">{{ row.onHand }}</td>
+                <td data-label="Reorder at" class="num">{{ row.reorderAt }}</td>
+                <td data-label="Shortfall" class="num"><strong>{{ row.shortfall }}</strong></td>
+                <td data-label="Actions" class="cell-actions">
+                  <a
+                    class="btn btn--sm btn--accent"
+                    [routerLink]="['/movements/new']"
+                    [queryParams]="{ type: 'IN', itemId: row.itemId }"
+                    attr.data-testid="low-record-in-{{ row.itemId }}"
+                  >
+                    Record stock in
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

@@ -1,0 +1,21 @@
+<div class="backdrop" (click)="dismissed.emit()" data-testid="confirm-backdrop"></div>
+
+<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title" data-testid="confirm-dialog">
+  <h2 class="dialog__title" id="confirm-title" data-testid="confirm-title">{{ title() }}</h2>
+  <p class="dialog__body" data-testid="confirm-message">{{ message() }}</p>
+
+  @if (blockedReason(); as reason) {
+    <div class="alert alert--error" role="alert" data-testid="confirm-blocked">{{ reason }}</div>
+  }
+
+  <div class="dialog__actions">
+    <button type="button" class="btn" (click)="dismissed.emit()" data-testid="confirm-cancel">
+      {{ blockedReason() ? 'Close' : 'Cancel' }}
+    </button>
+    @if (!blockedReason()) {
+      <button type="button" class="btn btn--danger" (click)="confirmed.emit()" data-testid="confirm-accept">
+        {{ confirmLabel() }}
+      </button>
+    }
+  </div>
+</div>

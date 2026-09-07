@@ -1,0 +1,66 @@
+<div class="auth" data-testid="login-screen">
+  <section class="auth__panel">
+    <a class="auth__brand" href="#" onclick="return false;">
+      <span class="auth__mark" aria-hidden="true">SR</span>
+      <span>StockRoom</span>
+    </a>
+
+    <h1 class="auth__title">Sign in</h1>
+    <p class="auth__sub">Multi-location inventory control for your warehouse floor.</p>
+
+    @if (error()) {
+      <div class="alert alert--error" role="alert" data-testid="login-error">{{ error() }}</div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate data-testid="login-form">
+      <div class="field">
+        <label class="field__label" for="login-email">Email</label>
+        <input
+          id="login-email"
+          class="field__control"
+          type="email"
+          formControlName="email"
+          autocomplete="username"
+          placeholder="you@company.com"
+          data-testid="login-email"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="login-password">Password</label>
+        <input
+          id="login-password"
+          class="field__control"
+          type="password"
+          formControlName="password"
+          autocomplete="current-password"
+          placeholder="At least 8 characters"
+          data-testid="login-password"
+        />
+      </div>
+
+      <button type="submit" class="btn btn--primary btn--block" [disabled]="submitting()" data-testid="login-submit">
+        {{ submitting() ? 'Signing in…' : 'Sign in' }}
+      </button>
+
+      @if (previewShortcut) {
+        <button type="button" class="auth__shortcut" (click)="skipLogin()" data-testid="login-skip">
+          {{ previewShortcut }}
+        </button>
+      }
+    </form>
+
+    <p class="auth__foot">
+      No account yet? <a routerLink="/signup" data-testid="link-signup">Create one</a>
+    </p>
+  </section>
+
+  <aside class="auth__aside" aria-hidden="true">
+    <h2 class="auth__aside-title">Every unit accounted for.</h2>
+    <ul class="auth__points">
+      <li><strong>Catalogue</strong> — SKUs, units and reorder thresholds in one place.</li>
+      <li><strong>Movements</strong> — receive, issue and transfer across zones.</li>
+      <li><strong>Audit</strong> — a filterable record of every quantity that ever moved.</li>
+    </ul>
+  </aside>
+</div>

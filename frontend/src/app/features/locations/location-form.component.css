@@ -1,0 +1,17 @@
+:host { display: block; }
+
+.page--narrow { max-width: 680px; }
+
+.crumb {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+.crumb:hover { color: var(--color-primary); text-decoration: underline; }
+
+form { display: flex; flex-direction: column; gap: var(--space-4); }
