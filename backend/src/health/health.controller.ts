@@ -1,27 +1,40 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import {
-  HealthCheck,
-  HealthCheckService,
-  HttpHealthIndicator,
-  HealthCheckResult,
-} from '@nestjs/terminus';
+import { PrismaService } from '../prisma/prisma.service';
+import { Public } from '../auth/decorators/public.decorator';
 
+interface DeepHealth {
+  status: string;
+  db: string;
+}
+
+/**
+ * Both probes are `@Public()`: an auth-gated health check breaks orchestration probes,
+ * and a malformed Authorization header must never make a probe fail.
+ */
 @ApiTags('health')
+@Public()
 @Controller('health')
 export class HealthController {
-  constructor(
-    private readonly health: HealthCheckService,
-    private readonly http: HttpHealthIndicator,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  @HealthCheck()
-  check(): Promise<HealthCheckResult> {
-    const port = process.env.PORT ?? '3000';
-    return this.health.check([
-      () =>
-        this.http.pingCheck('api', `http://localhost:${port}/trpc`),
-    ]);
+  check(): { status: string } {
+    return { status: 'ok' };
+  }
+
+  /** Round-trips a query so an unreachable database is reported as 503, not a hang. */
+  @Get('deep')
+  async deep(): Promise<DeepHealth> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      return { status: 'ok', db: 'ok' };
+    } catch {
+      throw new ServiceUnavailableException({
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        status: 'error',
+        db: 'unreachable',
+      });
+    }
   }
 }
