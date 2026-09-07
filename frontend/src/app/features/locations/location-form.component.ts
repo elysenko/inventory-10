@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import type { Location } from '../../core/models';
+import { LocationsApi } from '../../shared/api/locations-api.service';
+import { apiField, apiMessage, apiStatus } from '../../shared/api/api-client.service';
 
 @Component({
   selector: 'app-location-form',
@@ -13,36 +15,60 @@ import type { Location } from '../../core/models';
 export class LocationFormComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly locationsApi = inject(LocationsApi);
 
   /** Present on `/locations/:id/edit`, absent on `/locations/new`. */
   readonly id = input<string>('');
 
-  /** Source list; the service_agent swaps this for `GET /api/locations`. */
-  readonly locations = signal<Location[]>([
-    { id: 'loc-a', name: 'Zone A', zone: 'Receiving', itemCount: 6, totalQty: 679 },
-    { id: 'loc-b', name: 'Zone B', zone: 'Bulk storage', itemCount: 7, totalQty: 1214 },
-    { id: 'loc-c', name: 'Zone C', zone: 'Dispatch', itemCount: 5, totalQty: 260 },
-  ]);
+  /** The record being edited, loaded from `GET /api/locations/:id`. Null on create. */
+  readonly existing = signal<Location | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required]],
     zone: ['', [Validators.required]],
   });
 
+  readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   /** Field-level error mapped from the API's duplicate-name 409. */
   readonly nameError = signal<string | null>(null);
 
   readonly isEdit = computed(() => this.id().length > 0);
-  readonly existing = computed(() => this.locations().find((loc) => loc.id === this.id()) ?? null);
 
   constructor() {
-    effect(() => {
-      const location = this.existing();
-      if (!location) return;
-      this.form.patchValue({ name: location.name, zone: location.zone });
+    effect((onCleanup) => {
+      const id = this.id();
+      let stale = false;
+      onCleanup(() => {
+        stale = true;
+      });
+      void this.load(id, () => stale);
     });
+  }
+
+  private async load(id: string, isStale: () => boolean): Promise<void> {
+    if (!id) {
+      this.existing.set(null);
+      return;
+    }
+
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      const location = await this.locationsApi.getLocation(id);
+      if (isStale()) return;
+      this.existing.set(location);
+      this.form.patchValue({ name: location.name, zone: location.zone });
+    } catch (error) {
+      if (isStale()) return;
+      this.existing.set(null);
+      if (apiStatus(error) !== 404) {
+        this.error.set(apiMessage(error, 'Could not load this location. Try again.'));
+      }
+    } finally {
+      if (!isStale()) this.loading.set(false);
+    }
   }
 
   async submit(): Promise<void> {
@@ -55,18 +81,30 @@ export class LocationFormComponent {
       return;
     }
 
-    const { name } = this.form.getRawValue();
-    const clash = this.locations().find(
-      (loc) => loc.name.toLowerCase() === name.trim().toLowerCase() && loc.id !== this.id(),
-    );
-    if (clash) {
-      this.nameError.set(`A location named "${clash.name}" already exists. Choose a different name.`);
-      return;
-    }
+    const value = this.form.getRawValue();
+    const payload = { name: value.name.trim(), zone: value.zone.trim() };
 
     this.saving.set(true);
-    await this.router.navigate(['/locations']);
-    this.saving.set(false);
+    try {
+      if (this.isEdit()) {
+        await this.locationsApi.updateLocation(this.id(), payload);
+      } else {
+        await this.locationsApi.createLocation(payload);
+      }
+      await this.router.navigate(['/locations']);
+    } catch (error) {
+      const message = apiMessage(
+        error,
+        'Could not save this location. Check the details and try again.',
+      );
+      if (apiStatus(error) === 409 || apiField(error) === 'name') {
+        this.nameError.set(message);
+      } else {
+        this.error.set(message);
+      }
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   cancel(): void {

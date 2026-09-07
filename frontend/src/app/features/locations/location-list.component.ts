@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth.service';
 import type { Location } from '../../core/models';
+import { LocationsApi } from '../../shared/api/locations-api.service';
+import { apiMessage } from '../../shared/api/api-client.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 
 @Component({
@@ -12,19 +14,16 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
   styleUrl: './location-list.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LocationListComponent {
+export class LocationListComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly locationsApi = inject(LocationsApi);
   readonly auth = inject(AuthService);
 
-  /** Storage locations; the service_agent swaps this for `GET /api/locations`. */
-  readonly locations = signal<Location[]>([
-    { id: 'loc-a', name: 'Zone A', zone: 'Receiving', itemCount: 6, totalQty: 679 },
-    { id: 'loc-b', name: 'Zone B', zone: 'Bulk storage', itemCount: 7, totalQty: 1214 },
-    { id: 'loc-c', name: 'Zone C', zone: 'Dispatch', itemCount: 5, totalQty: 260 },
-  ]);
+  /** Storage locations from `GET /api/locations`, with their live occupancy. */
+  readonly locations = signal<Location[]>([]);
 
-  readonly loading = signal(false);
+  readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly deleteBlocked = signal<string | null>(null);
 
@@ -39,6 +38,22 @@ export class LocationListComponent {
   readonly totalUnits = computed(() =>
     this.locations().reduce((sum, location) => sum + location.totalQty, 0),
   );
+
+  ngOnInit(): void {
+    void this.load();
+  }
+
+  private async load(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      this.locations.set(await this.locationsApi.listLocations());
+    } catch (error) {
+      this.error.set(apiMessage(error, 'Could not load the locations. Try again.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
 
   private merge(queryParams: Record<string, string | null>): void {
     void this.router.navigate([], {
@@ -59,18 +74,22 @@ export class LocationListComponent {
   }
 
   /** The API returns 409 while the location still holds stock; surface that, don't delete. */
-  confirmDelete(): void {
+  async confirmDelete(): Promise<void> {
     const location = this.pendingDelete();
     if (!location) return;
 
-    if (location.totalQty > 0) {
+    this.deleteBlocked.set(null);
+    try {
+      await this.locationsApi.deleteLocation(location.id);
+      await this.load();
+      this.closeDelete();
+    } catch (error) {
       this.deleteBlocked.set(
-        `${location.name} still holds ${location.totalQty} units across ${location.itemCount} items. Transfer them elsewhere before deleting it.`,
+        apiMessage(
+          error,
+          `${location.name} could not be deleted. Transfer its stock elsewhere and try again.`,
+        ),
       );
-      return;
     }
-
-    this.locations.update((all) => all.filter((candidate) => candidate.id !== location.id));
-    this.closeDelete();
   }
 }

@@ -34,6 +34,26 @@ export class AuthService {
 
   constructor() {
     this.restore();
+    void this.hydrate();
+  }
+
+  /**
+   * Re-read the signed-in identity from the API on bootstrap so the role driving the
+   * nav and the manager guards is the server's, not whatever was last cached. A failure
+   * is silent: a 401 is already handled by the HTTP interceptor, and a transient network
+   * error must not sign a working session out.
+   */
+  private async hydrate(): Promise<void> {
+    if (COLOSSUS_PREVIEW) return;
+    const token = this.token();
+    if (!token) return;
+    try {
+      const me = await firstValueFrom(this.http.get<User>('/api/auth/me'));
+      this.user.set(me);
+      writeStorage(STORAGE_KEYS.user, JSON.stringify(me));
+    } catch {
+      /* 401 -> interceptor signs out; anything else leaves the cached session in place. */
+    }
   }
 
   /**
@@ -157,9 +177,32 @@ export class AuthService {
   }
 
   logout(): void {
+    // Stateless by contract — the server revokes nothing, so the request is best-effort
+    // and the local session is cleared regardless of how it resolves.
+    if (!COLOSSUS_PREVIEW && this.token()) {
+      this.http.post('/api/auth/logout', {}).subscribe({ next: () => undefined, error: () => undefined });
+    }
     this.user.set(null);
     this.token.set(null);
     removeStorage(STORAGE_KEYS.user, STORAGE_KEYS.token);
     void this.router.navigate(['/login']);
+  }
+
+  /**
+   * Called by the HTTP interceptor when the API rejects the stored token (expired or
+   * revoked). Clears the session once and bounces to `/login` carrying a returnUrl, so
+   * several in-flight 401s collapse into a single redirect rather than a loop.
+   */
+  sessionExpired(): void {
+    if (COLOSSUS_PREVIEW) return;
+    if (!this.token() && !this.user()) return;
+
+    const returnUrl = this.router.url;
+    this.user.set(null);
+    this.token.set(null);
+    removeStorage(STORAGE_KEYS.user, STORAGE_KEYS.token);
+    void this.router.navigate(['/login'], {
+      queryParams: returnUrl && !returnUrl.startsWith('/login') ? { returnUrl } : {},
+    });
   }
 }

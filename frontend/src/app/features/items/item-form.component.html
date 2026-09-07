@@ -14,7 +14,7 @@
     </div>
   </header>
 
-  @if (isEdit() && !existing()) {
+  @if (isEdit() && !loading() && !existing()) {
     <div class="alert alert--error" role="alert" data-testid="item-form-missing">
       No catalogue entry matches <span class="mono">{{ id() }}</span>.
     </div>

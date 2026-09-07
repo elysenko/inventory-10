@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { SettingEntry } from '../../core/models';
+import { SettingsApi } from '../../shared/api/settings-api.service';
+import { apiMessage } from '../../shared/api/api-client.service';
 
 interface ServiceGroup {
   service: string;
@@ -16,20 +18,17 @@ interface ServiceGroup {
   styleUrl: './settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class SettingsComponent {
-  /**
-   * Credential keys for each backing service. Values arrive masked from
-   * `GET /api/admin/settings`; the service_agent swaps this initializer for that call
-   * and wires the save button to `PATCH /api/admin/settings`.
-   */
-  readonly settings = signal<SettingEntry[]>([
-    { key: 'DATABASE_URL', service: 'postgresql', label: 'Connection URL', value: 'postgresql://stockroom:••••••••@app-db:5432/stockroom', configured: true, hint: 'Primary datastore for items, locations, balances and movements.' },
-    { key: 'MINIO_ENDPOINT', service: 'minio', label: 'Endpoint', value: '', configured: false, hint: 'Host and port of the object store, e.g. minio:9000.' },
-    { key: 'MINIO_ACCESS_KEY', service: 'minio', label: 'Access key', value: '', configured: false, hint: 'Access key issued by the object store.' },
-    { key: 'MINIO_SECRET_KEY', service: 'minio', label: 'Secret key', value: '', configured: false, hint: 'Stored encrypted; only ever returned masked.' },
-    { key: 'MINIO_BUCKET', service: 'minio', label: 'Bucket', value: '', configured: false, hint: 'Bucket that receives uploaded documents.' },
-  ]);
+export class SettingsComponent implements OnInit {
+  private readonly settingsApi = inject(SettingsApi);
 
+  /**
+   * Credential keys for each backing service, from `GET /api/admin/settings`. Values
+   * arrive masked — the API never returns a stored secret — and saving goes through
+   * `PATCH /api/admin/settings`.
+   */
+  readonly settings = signal<SettingEntry[]>([]);
+
+  readonly loading = signal(true);
   readonly saving = signal(false);
   readonly saved = signal(false);
   readonly error = signal<string | null>(null);
@@ -65,6 +64,22 @@ export class SettingsComponent {
     ...new Set(this.unconfigured().map((entry) => entry.service)),
   ]);
 
+  ngOnInit(): void {
+    void this.load();
+  }
+
+  private async load(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      this.settings.set(await this.settingsApi.listSettings());
+    } catch (error) {
+      this.error.set(apiMessage(error, 'Could not load the service credentials.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   isConfigured(group: ServiceGroup): boolean {
     return group.entries.every((entry) => entry.configured);
   }
@@ -78,36 +93,38 @@ export class SettingsComponent {
     this.saved.set(false);
   }
 
-  save(service: string): void {
+  /** Sends only this service's non-empty drafts; the API upserts and re-masks them. */
+  async save(service: string): Promise<void> {
     this.error.set(null);
-    this.saving.set(true);
+    this.saved.set(false);
 
     const drafts = this.drafts();
-    this.settings.update((entries) =>
-      entries.map((entry) => {
-        if (entry.service !== service) return entry;
-        const draft = drafts[entry.key]?.trim();
-        if (!draft) return entry;
-        return { ...entry, value: maskValue(draft), configured: true };
-      }),
-    );
+    const payload: Record<string, string> = {};
+    for (const entry of this.settings()) {
+      if (entry.service !== service) continue;
+      const draft = drafts[entry.key]?.trim();
+      if (draft) payload[entry.key] = draft;
+    }
 
-    // Clear the drafts for this service; stored values are only ever shown masked.
-    this.drafts.update((all) => {
-      const next = { ...all };
-      for (const entry of this.settings()) {
-        if (entry.service === service) delete next[entry.key];
-      }
-      return next;
-    });
+    if (Object.keys(payload).length === 0) {
+      this.error.set('Enter at least one value before saving.');
+      return;
+    }
 
-    this.saving.set(false);
-    this.saved.set(true);
+    this.saving.set(true);
+    try {
+      this.settings.set(await this.settingsApi.updateSettings(payload));
+      // Clear the drafts for this service; stored values are only ever shown masked.
+      this.drafts.update((all) => {
+        const next = { ...all };
+        for (const key of Object.keys(payload)) delete next[key];
+        return next;
+      });
+      this.saved.set(true);
+    } catch (error) {
+      this.error.set(apiMessage(error, 'Could not save these credentials. Try again.'));
+    } finally {
+      this.saving.set(false);
+    }
   }
-}
-
-/** Mirrors the API's masking: keep a readable prefix, hide the rest. */
-function maskValue(value: string): string {
-  if (value.length <= 4) return '••••';
-  return `${value.slice(0, 4)}${'•'.repeat(Math.min(12, value.length - 4))}`;
 }

@@ -1,8 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import type { ItemDetail, Location, MovementType } from '../../core/models';
+import type { Item, Location, MovementType, StockLevelView } from '../../core/models';
+import { ItemsApi } from '../../shared/api/items-api.service';
+import { LocationsApi } from '../../shared/api/locations-api.service';
+import { MovementsApi } from '../../shared/api/movements-api.service';
+import { apiMessage } from '../../shared/api/api-client.service';
 
 const TYPES: { value: MovementType; label: string; hint: string }[] = [
   { value: 'IN', label: 'Stock in', hint: 'Receive units into a location.' },
@@ -17,31 +21,24 @@ const TYPES: { value: MovementType; label: string; hint: string }[] = [
   styleUrl: './movement-form.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MovementFormComponent {
+export class MovementFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly itemsApi = inject(ItemsApi);
+  private readonly locationsApi = inject(LocationsApi);
+  private readonly movementsApi = inject(MovementsApi);
 
   readonly types = TYPES;
 
-  /** Catalogue with per-location balances; the service_agent swaps this for `GET /api/items`. */
-  readonly items = signal<ItemDetail[]>([
-    { id: 'itm-1042', sku: 'SKU-1042', name: 'M8 Hex Bolt, Zinc Plated', description: null, unit: 'box (100)', reorderAt: 40, totalQty: 128, lowStock: false, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 64 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 52 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 12 } ] },
-    { id: 'itm-1043', sku: 'SKU-1043', name: 'M8 Hex Nut, Zinc Plated', description: null, unit: 'box (100)', reorderAt: 40, totalQty: 36, lowStock: true, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 20 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 16 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 0 } ] },
-    { id: 'itm-2011', sku: 'SKU-2011', name: 'Nitrile Glove, Large', description: null, unit: 'box (50)', reorderAt: 25, totalQty: 25, lowStock: true, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 5 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 20 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 0 } ] },
-    { id: 'itm-2012', sku: 'SKU-2012', name: 'Safety Goggles, Clear', description: null, unit: 'each', reorderAt: 30, totalQty: 214, lowStock: false, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 90 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 100 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 24 } ] },
-    { id: 'itm-3007', sku: 'SKU-3007', name: 'Packing Tape, 48mm Clear', description: null, unit: 'roll', reorderAt: 60, totalQty: 412, lowStock: false, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 120 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 220 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 72 } ] },
-    { id: 'itm-3008', sku: 'SKU-3008', name: 'Corrugated Box, Medium', description: null, unit: 'each', reorderAt: 200, totalQty: 1340, lowStock: false, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 400 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 800 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 140 } ] },
-    { id: 'itm-4001', sku: 'SKU-4001', name: 'Thermal Label, 4x6in', description: null, unit: 'roll (250)', reorderAt: 50, totalQty: 18, lowStock: true, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 0 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 6 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 12 } ] },
-    { id: 'itm-5002', sku: 'SKU-5002', name: 'Pallet Wrap, Clear 500mm', description: null, unit: 'roll', reorderAt: 15, totalQty: 0, lowStock: true, levels: [ { locationId: 'loc-a', locationName: 'Zone A', zone: 'Receiving', qty: 0 }, { locationId: 'loc-b', locationName: 'Zone B', zone: 'Bulk storage', qty: 0 }, { locationId: 'loc-c', locationName: 'Zone C', zone: 'Dispatch', qty: 0 } ] },
-  ]);
+  /** Catalogue for the typeahead (`GET /api/items`). */
+  readonly items = signal<Item[]>([]);
 
-  /** Location select options; the service_agent swaps this for `GET /api/locations`. */
-  readonly locations = signal<Location[]>([
-    { id: 'loc-a', name: 'Zone A', zone: 'Receiving', itemCount: 6, totalQty: 679 },
-    { id: 'loc-b', name: 'Zone B', zone: 'Bulk storage', itemCount: 7, totalQty: 1214 },
-    { id: 'loc-c', name: 'Zone C', zone: 'Dispatch', itemCount: 5, totalQty: 260 },
-  ]);
+  /** Location select options (`GET /api/locations`). */
+  readonly locations = signal<Location[]>([]);
+
+  /** Per-location balances for the chosen item, from `GET /api/items/:id`. */
+  private readonly levels = signal<StockLevelView[]>([]);
 
   readonly form = this.fb.nonNullable.group({
     type: ['IN' as MovementType, [Validators.required]],
@@ -82,10 +79,9 @@ export class MovementFormComponent {
 
   /** Balance at the chosen source — what the server checks before allowing OUT/TRANSFER. */
   readonly availableAtSource = computed(() => {
-    const item = this.selectedItem();
     const fromLocId = this.formValue().fromLocId;
-    if (!item || !fromLocId) return null;
-    return item.levels.find((level) => level.locationId === fromLocId)?.qty ?? 0;
+    if (!this.selectedItem() || !fromLocId) return null;
+    return this.levels().find((level) => level.locationId === fromLocId)?.qty ?? 0;
   });
 
   constructor() {
@@ -107,6 +103,48 @@ export class MovementFormComponent {
       }
       this.form.updateValueAndValidity();
     });
+
+    // Whenever the chosen item changes, pull its per-location balances so the
+    // "N available here" hint reflects the stored balance rather than a guess.
+    effect((onCleanup) => {
+      const itemId = this.formValue().itemId ?? '';
+      let stale = false;
+      onCleanup(() => {
+        stale = true;
+      });
+      void this.loadLevels(itemId, () => stale);
+    });
+  }
+
+  ngOnInit(): void {
+    void this.loadOptions();
+  }
+
+  private async loadOptions(): Promise<void> {
+    try {
+      const [items, locations] = await Promise.all([
+        this.itemsApi.listItems(),
+        this.locationsApi.listLocations(),
+      ]);
+      this.items.set(items);
+      this.locations.set(locations);
+    } catch (error) {
+      this.error.set(apiMessage(error, 'Could not load items and locations. Try again.'));
+    }
+  }
+
+  private async loadLevels(itemId: string, isStale: () => boolean): Promise<void> {
+    if (!itemId) {
+      this.levels.set([]);
+      return;
+    }
+    try {
+      const detail = await this.itemsApi.getItem(itemId);
+      if (!isStale()) this.levels.set(detail.levels);
+    } catch {
+      // The hint is advisory; the server remains the authority on available stock.
+      if (!isStale()) this.levels.set([]);
+    }
   }
 
   selectType(type: MovementType): void {
@@ -132,10 +170,11 @@ export class MovementFormComponent {
   }
 
   /**
-   * Client-side mirror of the server's DTO rules and stock check. A rejection leaves the
-   * form exactly as the user filled it — nothing is cleared — so the entry can be fixed.
+   * Shape checks mirror the server DTO so an obviously invalid entry never leaves the
+   * browser; the stock check itself is the server's, made inside its transaction. A
+   * rejection leaves the form exactly as the user filled it — nothing is cleared.
    */
-  submit(): void {
+  async submit(): Promise<void> {
     this.error.set(null);
     this.success.set(null);
 
@@ -162,21 +201,31 @@ export class MovementFormComponent {
       return;
     }
 
-    const available = this.availableAtSource();
-    if (this.needsSource() && available !== null && value.qty > available) {
-      const item = this.selectedItem();
-      this.error.set(
-        `Insufficient stock: ${item?.sku} has ${available} ${item?.unit} at the source location, but ${value.qty} were requested. The balance is unchanged.`,
-      );
-      return;
-    }
-
-    this.submitting.set(true);
     const item = this.selectedItem();
-    this.success.set(
-      `Recorded ${value.type} of ${value.qty} × ${item?.sku}. Balances updated.`,
-    );
-    this.submitting.set(false);
+    this.submitting.set(true);
+    try {
+      const movement = await this.movementsApi.createMovement({
+        type: value.type,
+        itemId: value.itemId,
+        ...(this.needsSource() ? { fromLocId: value.fromLocId } : {}),
+        ...(this.needsDestination() ? { toLocId: value.toLocId } : {}),
+        qty: Number(value.qty),
+        ...(value.note.trim() ? { note: value.note.trim() } : {}),
+      });
+
+      this.success.set(
+        `Recorded ${movement.type} of ${movement.qty} × ${movement.itemSku}. Balances updated.`,
+      );
+      // Refresh the balances the form advertises, and the on-hand totals in the picker.
+      await Promise.all([this.loadLevels(value.itemId, () => false), this.loadOptions()]);
+    } catch (error) {
+      // 400 carries the server's insufficient-stock message; the balance is unchanged.
+      this.error.set(
+        apiMessage(error, `Could not record this movement for ${item?.sku ?? 'the item'}.`),
+      );
+    } finally {
+      this.submitting.set(false);
+    }
   }
 
   viewLog(): void {
