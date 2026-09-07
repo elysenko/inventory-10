@@ -1,0 +1,28 @@
+# deploy/values-minio.yaml
+# Bitnami MinIO chart - single-node S3-compatible object storage.
+# Matches the ALREADY-PROVISIONED release in colossus-inventory-10
+# (service: minio.colossus-inventory-10.svc.cluster.local:9000).
+# Surfaced to operators via the admin settings screen (MINIO_* keys resolve
+# from env first, then the SystemSetting table).
+# Deploy with:
+#   helm upgrade --install minio bitnami/minio \
+#     -f deploy/values-minio.yaml -n colossus-inventory-10
+
+mode: standalone
+
+auth:
+  rootUser: "admin"
+  rootPassword: "I_sT_GhkdZ7xl_IZrauH-V2B"
+
+defaultBuckets: "app-uploads"
+
+persistence:
+  size: 5Gi
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

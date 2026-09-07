@@ -16,10 +16,14 @@ model User {
   role         Role     @default(USER)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  movements Movement[]
 }
 
 /// One value per role the stack contract declares (stacks/combos/enterprise.json auth.roles).
 /// Colossus mints one login per role; add app roles here AND to the contract, never demo users.
+/// USER = stock clerk (record movements, read catalogue).
+/// MANAGER/ADMIN = manage items & locations, read the audit log and low-stock report.
 enum Role {
   USER
   MANAGER
@@ -40,4 +44,99 @@ model ColossusAccount {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("colossus_accounts")
+}
+
+/// Direction of a stock movement.
+/// IN      -> toLocId required, fromLocId must be null.
+/// OUT     -> fromLocId required, toLocId must be null.
+/// TRANSFER-> both required and distinct.
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+}
+
+/// Catalogue entry. `reorderAt` is the low-stock threshold; an item is low when
+/// SUM(stockLevels.qty) <= reorderAt (boundary is inclusive).
+model Item {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  unit        String
+  reorderAt   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stockLevels StockLevel[]
+  movements   Movement[]
+
+  @@index([name])
+}
+
+/// A physical storage location within a zone.
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  zone      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockLevels   StockLevel[]
+  movementsFrom Movement[]   @relation("MovementFromLocation")
+  movementsTo   Movement[]   @relation("MovementToLocation")
+
+  @@index([zone])
+}
+
+/// Denormalised on-hand balance for one (item, location) pair.
+/// The compound unique key is what makes the movement transaction's upsert atomic.
+/// Cascades on parent delete: the service refuses the delete while any qty > 0,
+/// so only zero rows are ever swept away.
+model StockLevel {
+  id         String   @id @default(cuid())
+  itemId     String
+  locationId String
+  qty        Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  item     Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, locationId])
+  @@index([locationId])
+}
+
+/// Immutable audit record of a stock change. Restrict on every parent delete so the
+/// ledger can never be orphaned or silently rewritten.
+model Movement {
+  id        String       @id @default(cuid())
+  type      MovementType
+  itemId    String
+  fromLocId String?
+  toLocId   String?
+  qty       Int
+  note      String?
+  userId    String
+  createdAt DateTime     @default(now())
+
+  item    Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  fromLoc Location? @relation("MovementFromLocation", fields: [fromLocId], references: [id], onDelete: Restrict)
+  toLoc   Location? @relation("MovementToLocation", fields: [toLocId], references: [id], onDelete: Restrict)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, createdAt])
+  @@index([createdAt])
+  @@index([type])
+  @@index([userId])
+}
+
+/// Runtime override layer for service credentials. `resolveConfig()` reads the env var
+/// first and falls back to this table, so operators can configure MinIO from the
+/// admin settings screen without a redeploy. Secret values are stored here, never logged.
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

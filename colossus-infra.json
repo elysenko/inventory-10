@@ -1,0 +1,15 @@
+{
+  "postgres": {
+    "host": "postgres-postgresql.colossus-inventory-10.svc.cluster.local",
+    "port": 5432,
+    "user": "postgres",
+    "password": "aoAcr9SJldh9WXDeixi2op8u",
+    "database": "app"
+  },
+  "minio": {
+    "endpoint": "http://minio.colossus-inventory-10.svc.cluster.local:9000",
+    "accessKey": "admin",
+    "secretKey": "I_sT_GhkdZ7xl_IZrauH-V2B",
+    "bucket": "app-uploads"
+  }
+}

@@ -1,0 +1,23 @@
+# deploy/values-postgresql.yaml
+# Bitnami PostgreSQL Helm chart values.
+# Matches the ALREADY-PROVISIONED release in colossus-inventory-10
+# (service: postgres-postgresql.colossus-inventory-10.svc.cluster.local).
+# Deploy with:
+#   helm upgrade --install postgres bitnami/postgresql \
+#     -f deploy/values-postgresql.yaml -n colossus-inventory-10
+
+auth:
+  postgresPassword: "aoAcr9SJldh9WXDeixi2op8u"
+  database: app
+
+primary:
+  persistence:
+    size: 5Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
