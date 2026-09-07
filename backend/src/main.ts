@@ -44,6 +44,10 @@ async function bootstrap(): Promise<void> {
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 
+  // Route SIGTERM/SIGINT through Nest's lifecycle so PrismaService.onModuleDestroy runs
+  // and the connection pool drains before the process exits during a rolling restart.
+  app.enableShutdownHooks();
+
   const port = parseInt(process.env.PORT ?? '3000', 10);
   await app.listen(port, '0.0.0.0');
   logger.log(`StockRoom API listening on 0.0.0.0:${port} (routes under /api)`);

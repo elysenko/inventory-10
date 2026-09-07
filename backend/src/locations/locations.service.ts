@@ -123,6 +123,11 @@ export class LocationsService {
     if (prismaErrorCode(error) === 'P2003') {
       return new ConflictException('This location is referenced by existing records.');
     }
+    // TOCTOU loser: the existence check runs outside the write, so a concurrent delete
+    // must surface as a 404 rather than an unhandled 500.
+    if (prismaErrorCode(error) === 'P2025') {
+      return new NotFoundException('That location no longer exists.');
+    }
     return error;
   }
 }

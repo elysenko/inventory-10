@@ -141,7 +141,14 @@ export class ItemsService {
     if (!exists) throw new NotFoundException(`Item ${id} was not found.`);
   }
 
-  /** P2002 on `sku` becomes a field-level 409 so the form can highlight the input. */
+  /**
+   * Map Prisma write failures onto the HTTP contract. Returns `unknown` rather than
+   * `HttpException` because the fall-through re-throws whatever it was handed.
+   *
+   * P2002 on `sku` becomes a field-level 409 so the form can highlight the input.
+   * P2025 ("record not found") is the TOCTOU loser: the existence check above runs
+   * outside the write, so a concurrent delete lands here and must be a 404, not a 500.
+   */
   private translate(error: unknown, sku: string): unknown {
     if (prismaErrorCode(error) === 'P2002') {
       return new ConflictException({
@@ -150,6 +157,9 @@ export class ItemsService {
         field: 'sku',
         message: `Another item already uses the sku "${sku}". SKUs must be unique.`,
       });
+    }
+    if (prismaErrorCode(error) === 'P2025') {
+      return new NotFoundException('That item no longer exists.');
     }
     return error;
   }
